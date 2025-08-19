@@ -8,7 +8,7 @@ router.post('/register', registerUser);
 router.post('/login', loginUser);
 
 router.get('/', (req, res) => {
-  res.json({ message: 'List of user' });
+  res.json({ message: 'List of users' });
 });
 
 export default router;
