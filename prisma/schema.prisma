@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"  // change to "postgresql" later if needed
+  provider = "sqlite" // change to "postgresql" later if needed
   url      = env("DATABASE_URL")
 }
 
@@ -15,6 +15,7 @@ model User {
   role      Role     @default(CUSTOMER)
   orders    Order[]
   createdAt DateTime @default(now())
+  cart      Cart?
 }
 
 enum Role {
@@ -23,14 +24,15 @@ enum Role {
 }
 
 model Product {
-  id          String   @id @default(uuid())
+  id          String      @id @default(uuid())
   name        String
   description String?
   price       Float
-  stock       Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  stock       Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
   orderItems  OrderItem[]
+  items       CartItem[]
 }
 
 model Order {
@@ -45,13 +47,13 @@ model Order {
 }
 
 model OrderItem {
-  id        String   @id @default(uuid())
-  order     Order    @relation(fields: [orderId], references: [id])
+  id        String  @id @default(uuid())
+  order     Order   @relation(fields: [orderId], references: [id])
   orderId   String
-  product   Product  @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
   productId String
   quantity  Int
-  price     Float    // store price at the time of order
+  price     Float // store price at the time of order
 }
 
 enum OrderStatus {
@@ -60,4 +62,24 @@ enum OrderStatus {
   SHIPPED
   DELIVERED
   CANCELED
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  user      User       @relation(fields: [userId], references: [id])
+  userId    String     @unique
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String  @id @default(uuid())
+  cart      Cart    @relation(fields: [cartId], references: [id])
+  cartId    String
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
+  quantity  Int     @default(1)
+
+  @@unique([cartId, productId]) // prevents duplicate products in the same cart
 }
