@@ -136,3 +136,85 @@ try {
     res.status(500).json({ error: "Failed to fetch all orders" });
 }
 };
+
+// Update order status (admin only)
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params; // orderId
+    const { status } = req.body;
+
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json({ error: "Forbidden: Admins only" });
+    }
+
+    // validate status
+    const validStatuses = ["PENDING", "PAID", "SHIPPED", "DELIVERED", "CANCELED"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid status value" });
+    }
+
+    const order = await prisma.order.update({
+      where: { id },
+      data: { status },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        items: {
+          include: {
+            product: { select: { id: true, name: true, price: true } }
+          }
+        }
+      }
+    });
+
+    res.json(order);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to update order status" });
+  }
+};
+
+// Pay for an order (customer action)
+export const payOrder = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params; // orderId
+
+    // Find the order
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { user: true }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    // Ensure this order belongs to the logged-in user
+    if (order.userId !== userId) {
+      return res.status(403).json({ error: "You cannot pay for this order" });
+    }
+
+    // Only allow payment if still pending
+    if (order.status !== "PENDING") {
+      return res.status(400).json({ error: `Order cannot be paid. Current status: ${order.status}` });
+    }
+
+    // Update status to PAID
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: { status: "PAID" },
+      include: {
+        items: {
+          include: {
+            product: { select: { id: true, name: true, price: true } }
+          }
+        }
+      }
+    });
+
+    res.json({ message: "Payment successful", order: updatedOrder });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Payment failed" });
+  }
+};
